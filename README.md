@@ -7,9 +7,23 @@ state to Notion for human-readable views.
 
 **Source-of-truth design:** [`ai-ops-meta` `briefs/control-plane-design.md`](https://github.com/hamlet-archer/ai-ops-meta/blob/main/briefs/control-plane-design.md).
 
-This is **v0.1** — schema + client API + tests. The Notion projector,
-contract validation hookup, and per-agent migrations ship as separate
-Outcome 7 backlog items in `ai-ops-meta`.
+This is **v0.1** — schema + TypeScript + Python clients + tests +
+cross-edition parity smoke. The Notion projector, contract validation
+hookup, and per-agent migrations ship as separate Outcome 7 backlog
+items in `ai-ops-meta`.
+
+## Editions
+
+| Edition | Path | Install |
+|---|---|---|
+| TypeScript | `src/`, `dist/` | `npm install @hamlet-archer/ai-ops-control-plane` |
+| Python | `python/` | `pip install ai-ops-control-plane` |
+
+Both editions share the same `src/schema.sql` (the Python wheel ships it
+as a bundled data file). Cross-edition parity is asserted in CI by
+`scripts/cross-edition-smoke.mjs`: TypeScript writes a Run + Event +
+Handoff to a temp `ops.db`; a Python child process reads them back and
+asserts every field matches.
 
 ## Status
 

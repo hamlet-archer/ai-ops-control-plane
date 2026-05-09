@@ -7,3 +7,14 @@ dist/
 *.db-journal
 *.db-wal
 *.db-shm
+
+# Python
+python/.venv/
+python/dist/
+python/build/
+python/*.egg-info/
+python/.pytest_cache/
+python/.ruff_cache/
+python/.mypy_cache/
+__pycache__/
+*.pyc
