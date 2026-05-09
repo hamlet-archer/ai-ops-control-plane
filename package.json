@@ -1,0 +1,41 @@
+{
+  "name": "@hamlet-archer/ai-ops-control-plane",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "SQLite-backed control plane for the AI Ops fleet. Runs, events, handoffs, incidents in one ops.db. See ai-ops-meta briefs/control-plane-design.md.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src/schema.sql"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.5.0",
+    "uuidv7": "^1.0.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hamlet-archer/ai-ops-control-plane.git"
+  },
+  "publishConfig": {
+    "access": "restricted"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}
