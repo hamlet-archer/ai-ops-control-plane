@@ -41,6 +41,16 @@ asserts every field matches.
 
 ## Install
 
+The package is not published to npm yet. Until the publish lands, agents
+install directly from the GitHub repo:
+
+```bash
+npm install "git+https://github.com/hamlet-archer/ai-ops-control-plane.git#v0.1.0"
+```
+
+The `prepare` script builds `dist/` during install — no manual build step
+required. Once the npm publish ships:
+
 ```bash
 npm install @hamlet-archer/ai-ops-control-plane
 ```
