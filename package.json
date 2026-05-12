@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
+    "prepare": "test -f src/index.ts && npm run build || true",
     "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
