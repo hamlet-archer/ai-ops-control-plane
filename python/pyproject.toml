@@ -23,8 +23,16 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["ai_ops_control_plane"]
 
-[tool.hatch.build.targets.wheel.shared-data]
-"../src/schema.sql" = "ai_ops_control_plane/_schema.sql"
+# `_schema.sql` lives inside the package (next to __init__.py) so the
+# install discovers it via _load_schema_sql()'s `here / "_schema.sql"`
+# branch regardless of whether the wheel was built by Hatch locally or
+# by pip when installing from a git URL. The prior `shared-data` rule
+# placed the file under sys.prefix/share/, which Hatch honors but pip-
+# from-git does not — emit-triage's first git+https install (2026-05-12)
+# tripped on `FileNotFoundError: <venv>/lib/python3.10/src/schema.sql`.
+# Source of truth is still `../src/schema.sql` at the repo root; the
+# package-local copy here is kept in sync via the publish step (and a
+# pre-commit check would be reasonable follow-up).
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
