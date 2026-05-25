@@ -201,6 +201,88 @@ describe("ControlPlane v0.1", () => {
   });
 });
 
+describe("ControlPlane.end / close durability (N11)", () => {
+  let tmp: string;
+  let dbPath: string;
+
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), "cp-durable-"));
+    dbPath = join(tmp, "ops.db");
+  });
+
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it("run.end + close in a subprocess that exits cleanly leaves runs.status='done' visible to a fresh reader (WAL checkpoint)", async () => {
+    // The bug N11 fixes: without `wal_checkpoint(TRUNCATE)` before close(),
+    // a subprocess that calls run.end() and exits immediately can leave the
+    // final UPDATE only in the WAL. A separate reader sees the row as still
+    // `running`. Reproduce: spawn a Node child that ends a run + closes +
+    // exits, then read from the parent.
+    const { spawnSync } = await import("node:child_process");
+    const { writeFileSync, existsSync } = await import("node:fs");
+    const distEntry = new URL("../dist/index.js", import.meta.url).pathname;
+    if (!existsSync(distEntry)) {
+      throw new Error(`dist/index.js not built — run \`npm run build\` first (CI does this via \`prepare\`)`);
+    }
+    const childScript = join(tmp, "child.mjs");
+    writeFileSync(
+      childScript,
+      `import { open } from "file://${distEntry}";
+const cp = await open({
+  agentId: "child-agent",
+  dbPath: ${JSON.stringify(dbPath)},
+  bootstrap: { agents: [{ id: "child-agent", name: "Child", status: "active", blastRadius: "internal", notionPageId: null, repoUrl: null }] },
+});
+const run = await cp.startRun({ triggeredBy: "manual" });
+process.stdout.write(run.traceId + "\\n");
+await run.end({ status: "done", summary: "child done" });
+await cp.close();
+process.exit(0);
+`,
+      "utf8",
+    );
+    const result = spawnSync(process.execPath, [childScript], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    if (result.status !== 0) {
+      throw new Error(`child exited ${result.status}: ${result.stderr}`);
+    }
+    const traceId = result.stdout.trim();
+    expect(traceId).toBeTruthy();
+
+    // Read with a fresh connection in the parent — this is what the dashboard
+    // or a GC job does. Without the wal_checkpoint fix this would see
+    // status='running'.
+    const inspect = await openInspect(dbPath);
+    const row = inspect.prepare(`SELECT status FROM runs WHERE trace_id = ?`).get(traceId) as { status: string };
+    expect(row).toBeTruthy();
+    expect(row.status).toBe("done");
+  }, 30_000);
+
+  it("run.end() rethrows when the UPDATE fails (db closed early by a consumer)", async () => {
+    // Models the ai-comms-adviser `draft-replies.ts` shape: the consumer
+    // closed ops.db inside its own finally before `withRun` could write
+    // the final UPDATE. Pre-N11 this was warn-and-swallow → row stayed
+    // `running` silently. Post-N11 it throws so the consumer / finally
+    // chain can surface it through journald.
+    const cp = await open({
+      agentId: "test-agent",
+      dbPath,
+      bootstrap: {
+        agents: [{ id: "test-agent", name: "Test", status: "active", blastRadius: "internal", notionPageId: null, repoUrl: null }],
+      },
+    });
+    const run = await cp.startRun({ triggeredBy: "manual" });
+    // Simulate the bug: close the underlying handle before run.end() runs
+    // its UPDATE.
+    await cp.close();
+    await expect(run.end({ status: "done" })).rejects.toThrow();
+  });
+});
+
 describe("ControlPlane boot guards", () => {
   let tmp: string;
   let dbPath: string;
