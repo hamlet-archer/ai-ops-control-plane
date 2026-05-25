@@ -42,6 +42,7 @@ from .types import (
     Severity,
     TriggeredBy,
     ValidatorMode,
+    is_run_status,
 )
 
 __all__ = [
@@ -71,8 +72,9 @@ __all__ = [
     "UnknownAgentError",
     "ValidatorMode",
     "compute_dedupe_key",
+    "is_run_status",
     "new_trace_id",
     "open_control_plane",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.3.0"

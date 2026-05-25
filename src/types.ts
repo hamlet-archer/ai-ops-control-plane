@@ -7,7 +7,25 @@ export type BlastRadius =
 export type AgentStatus = "active" | "retired" | "planned";
 
 export type TriggeredBy = "cron" | "handoff" | "slack_event" | "manual";
-export type RunStatus = "running" | "done" | "failed" | "timeout";
+// Canonical run-lifecycle vocabulary. Four values, no aliases. Downstream
+// callers MUST import this type (or use `isRunStatus`) instead of writing
+// loose strings — `runs.status` rollups across the fleet break the moment
+// agents write 'ok'/'success'/'completed'/'failed' (the 2026-05-25 audit
+// found 6+ "success-ish" variants in ops.db). `failed` was the prior
+// name for what is now `error`; ai-ops-meta `scripts/runner-heartbeat.sh`
+// normalizes the legacy aliases at write-time as a one-shot safety net.
+export type RunStatus = "running" | "done" | "error" | "timeout";
+
+const RUN_STATUS_SET: ReadonlySet<string> = new Set<string>([
+  "running",
+  "done",
+  "error",
+  "timeout",
+]);
+
+export function isRunStatus(s: string): s is RunStatus {
+  return RUN_STATUS_SET.has(s);
+}
 
 export type Severity = "debug" | "info" | "warn" | "error" | "critical";
 

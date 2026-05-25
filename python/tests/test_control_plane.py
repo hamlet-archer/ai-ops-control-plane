@@ -23,6 +23,7 @@ from ai_ops_control_plane import (
     StartRunArgs,
     UnknownAgentError,
     compute_dedupe_key,
+    is_run_status,
     new_trace_id,
     open_control_plane,
 )
@@ -235,6 +236,29 @@ async def test_compute_dedupe_key_part_order_matters():
 async def test_compute_dedupe_key_empty_raises():
     with pytest.raises(ValueError):
         compute_dedupe_key([])
+
+
+# --- N12.1: canonical run-status vocab ---
+
+
+def test_is_run_status_accepts_canonical_four():
+    assert is_run_status("running")
+    assert is_run_status("done")
+    assert is_run_status("error")
+    assert is_run_status("timeout")
+
+
+def test_is_run_status_rejects_legacy_failed_alias():
+    # `failed` was renamed to `error` in v0.3.0. Callers must normalize
+    # before invoking end(). ai-ops-meta `scripts/runner-heartbeat.sh`
+    # maps the legacy aliases at write-time as a one-shot safety net.
+    assert not is_run_status("failed")
+
+
+def test_is_run_status_rejects_audit_variants():
+    # Every "success-ish" variant the 2026-05-25 audit found in ops.db.
+    for s in ("ok", "success", "succeeded", "completed", "empty", "", "OK", "DONE"):
+        assert not is_run_status(s), f"{s!r} should not be a canonical RunStatus"
 
 
 async def test_round_trip_writes_runs_events_handoffs(cp, tmp_db):

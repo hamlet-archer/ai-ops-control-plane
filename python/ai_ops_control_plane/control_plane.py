@@ -156,7 +156,7 @@ class RunHandle:
         error_summary: str | None = None,
     ) -> None:
         if status == "running":
-            raise ValueError("end() status must be one of: done, failed, timeout")
+            raise ValueError("end() status must be one of: done, error, timeout")
         if self._ended:
             return
         self._ended = True

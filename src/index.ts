@@ -9,6 +9,7 @@ export type {
 } from "./control-plane.js";
 export { newTraceId } from "./trace.js";
 export { computeDedupeKey } from "./dedupe.js";
+export { isRunStatus } from "./types.js";
 export {
   ControlPlaneError,
   ContractViolationError,

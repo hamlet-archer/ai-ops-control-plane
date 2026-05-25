@@ -7,6 +7,7 @@ import {
   open,
   newTraceId,
   computeDedupeKey,
+  isRunStatus,
   DomainRuleError,
   UnknownAgentError,
   type AgentRow,
@@ -347,6 +348,25 @@ describe("computeDedupeKey", () => {
 
   it("throws on empty parts", () => {
     expect(() => computeDedupeKey([])).toThrow();
+  });
+});
+
+describe("isRunStatus (N12.1 — canonical run-status vocab)", () => {
+  it("accepts the four canonical values", () => {
+    expect(isRunStatus("running")).toBe(true);
+    expect(isRunStatus("done")).toBe(true);
+    expect(isRunStatus("error")).toBe(true);
+    expect(isRunStatus("timeout")).toBe(true);
+  });
+
+  it("rejects the legacy `failed` alias (now `error`) — caller must normalize before calling", () => {
+    expect(isRunStatus("failed")).toBe(false);
+  });
+
+  it("rejects every other success-ish variant the 2026-05-25 audit found in ops.db", () => {
+    for (const s of ["ok", "success", "succeeded", "completed", "empty", "", "OK", "DONE"]) {
+      expect(isRunStatus(s)).toBe(false);
+    }
   });
 });
 
