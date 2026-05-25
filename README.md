@@ -111,7 +111,7 @@ try {
   await run.end({ status: "done" });
 } catch (err) {
   run.bumpErrors(1);
-  await run.end({ status: "failed", errorSummary: String(err) });
+  await run.end({ status: "error", errorSummary: String(err) });
 } finally {
   await cp.close();
 }
