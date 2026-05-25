@@ -185,9 +185,16 @@ class RunHandle:
             )
             self._db.commit()
         except Exception as e:
-            self._logger.warn(
+            # N11: the prior `logger.warn` + swallow shape silently left
+            # runs stuck at status='running' if the UPDATE failed for any
+            # reason (db closed early by consumer, WAL contention, schema
+            # drift). Log at ERROR with the cause and re-raise — callers
+            # must handle. The consumer's `with_run` finally is the right
+            # place to surface this through journald.
+            self._logger.error(
                 "runs_close_failed", {"trace_id": self.trace_id, "error": str(e)}
             )
+            raise
 
 
 class ControlPlane:
@@ -369,6 +376,12 @@ class ControlPlane:
             return
         self._closed = True
         try:
+            # Flush the WAL to the main DB file before close. Without
+            # this, a process that exits immediately after close() can
+            # leave durable writes only in the WAL — a separate reader
+            # would see status='running' until lazy WAL replay. N11
+            # root-causes 265 such orphans to this.
+            self._db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
             self._db.close()
         except Exception as e:
             self._logger.warn("close_failed", {"error": str(e)})

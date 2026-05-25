@@ -268,6 +268,82 @@ async def test_round_trip_writes_runs_events_handoffs(cp, tmp_db):
     assert projector_unprojected >= 2
 
 
+async def test_run_end_rethrows_on_update_failure(tmp_db):
+    """N11: models the ai-comms-adviser `draft-replies.ts:80-83` shape —
+    a consumer closes ops.db inside its own finally before with_run can
+    write the final UPDATE. Pre-N11 this was warn-and-swallow leaving
+    runs stuck at status='running'. Post-N11 it raises so the consumer's
+    finally chain surfaces it through journald."""
+    cp = await open_control_plane(
+        OpenOpts(
+            agent_id=TEST_AGENT.id,
+            db_path=tmp_db,
+            bootstrap={"agents": [TEST_AGENT]},
+        )
+    )
+    run = await cp.start_run(StartRunArgs(triggered_by="manual"))
+    # Simulate the bug: close the underlying handle before run.end() runs
+    # its UPDATE. The .end() call must raise so a finally chain can surface it.
+    await cp.close()
+    with pytest.raises(sqlite3.ProgrammingError):
+        await run.end(status="done")
+
+
+async def test_subprocess_close_then_fresh_reader_sees_status_done(tmp_db):
+    """N11: without `wal_checkpoint(TRUNCATE)` before close(), a process
+    that exits immediately after close() can leave the final UPDATE only
+    in the WAL — a separate reader sees status='running' until lazy
+    replay. Spawn a Python child, end + close + exit, then read from
+    the parent and assert status='done'."""
+    import subprocess
+    import sys
+    import textwrap
+
+    script = textwrap.dedent(
+        f"""
+        import asyncio, sys
+        from ai_ops_control_plane import (
+            AgentRow, OpenOpts, StartRunArgs, open_control_plane,
+        )
+
+        async def main():
+            cp = await open_control_plane(
+                OpenOpts(
+                    agent_id="child-agent",
+                    db_path={tmp_db!r},
+                    bootstrap={{"agents": [AgentRow(
+                        id="child-agent", name="Child",
+                        status="active", blast_radius="internal",
+                    )]}},
+                )
+            )
+            run = await cp.start_run(StartRunArgs(triggered_by="manual"))
+            print(run.trace_id)
+            await run.end(status="done", summary="child done")
+            await cp.close()
+
+        asyncio.run(main())
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, f"child failed: {result.stderr}"
+    trace_id = result.stdout.strip().splitlines()[-1]
+    assert trace_id, f"no trace_id printed: {result.stdout!r}"
+
+    # Fresh reader, separate connection, after the child has exited.
+    # Without the wal_checkpoint fix in close(), this would see 'running'.
+    row = _inspect(tmp_db).execute(
+        "SELECT status FROM runs WHERE trace_id = ?", (trace_id,)
+    ).fetchone()
+    assert row is not None
+    assert row[0] == "done"
+
+
 async def test_schema_parity_with_typescript_edition(tmp_db):
     """The Python edition writes the same schema as the TS edition. A TS
     client opening this file would read the same tables/columns. We don't
