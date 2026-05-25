@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ai-ops-control-plane"
-version = "0.1.0"
+version = "0.2.0"
 description = "SQLite-backed control plane for the AI Ops fleet — Python port. Mirrors the TypeScript edition (same schema, same ops.db file, same dedupe semantics)."
 requires-python = ">=3.10"
 license = { text = "Proprietary" }
