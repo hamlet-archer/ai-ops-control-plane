@@ -318,6 +318,13 @@ export class ControlPlane {
     if (this.closed) return;
     this.closed = true;
     try {
+      // Flush the WAL to the main DB file before close. Without this, a
+      // process that exits immediately after close() can leave durable
+      // writes only in the WAL — when SQLite reopens elsewhere the WAL is
+      // replayed lazily, but a `process.exit()` racing the close (or a
+      // SIGKILL right after) can leave them invisible to a fresh reader.
+      // N11 root-causes 265 `runs.status='running'` orphans to this.
+      this.db.pragma("wal_checkpoint(TRUNCATE)");
       this.db.close();
     } catch (e) {
       this.logger.warn("close_failed", { error: errMsg(e) });
@@ -428,10 +435,17 @@ class RunHandleImpl implements RunHandle {
           this.traceId,
         );
     } catch (e) {
-      this.logger.warn("runs_close_failed", {
+      // N11: the prior `logger.warn` + swallow shape silently left runs
+      // stuck at `status='running'` if the UPDATE failed for any reason
+      // (db closed early by a consumer, WAL contention, schema drift).
+      // Log at ERROR with a stack and rethrow — callers must handle. The
+      // consumer's `withRun` finally is the right place to surface this
+      // through journald instead of leaving it invisible.
+      this.logger.error("runs_close_failed", {
         trace_id: this.traceId,
         error: errMsg(e),
       });
+      throw e;
     }
   }
 }
