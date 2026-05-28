@@ -41,6 +41,17 @@ describe("costFromUsage", () => {
     expect(dated).toBe(bare);
   });
 
+  it("prices the production model string claude-sonnet-4-20250514 (Sonnet 4.0)", () => {
+    // Every active agent's ANTHROPIC_MODEL resolves to this. The date-strip
+    // yields `claude-sonnet-4`; without its row this returned 0 and kept
+    // ops.db runs.cost_usd at 0 fleet-wide (architect-backlog §J7c.b.4).
+    const cost = costFromUsage("claude-sonnet-4-20250514", {
+      input_tokens: 1_000_000,
+      output_tokens: 1_000_000,
+    });
+    expect(cost).toBeCloseTo(18, 6);
+  });
+
   it("bills cache_creation at 1.25× input and cache_read at 0.10× input", () => {
     // Sonnet 4.6: cache_creation @ $3.75/M, cache_read @ $0.30/M
     const cost = costFromUsage("claude-sonnet-4-6", {
@@ -98,5 +109,7 @@ describe("costFromUsage", () => {
     expect(_PRICE_TABLE["claude-opus-4-7"]).toBeDefined();
     expect(_PRICE_TABLE["claude-sonnet-4-6"]).toBeDefined();
     expect(_PRICE_TABLE["claude-haiku-4-5"]).toBeDefined();
+    // Sonnet 4.0 — the string production agents actually pass.
+    expect(_PRICE_TABLE["claude-sonnet-4"]).toBeDefined();
   });
 });
