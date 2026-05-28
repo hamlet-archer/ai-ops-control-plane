@@ -77,6 +77,16 @@ const PRICE_TABLE: Readonly<Record<string, ModelPrice>> = {
     cacheCreationPerMTok: 3.75,
     cacheReadPerMTok: 0.3,
   },
+  // Sonnet 4.0 — the model every active agent's `ANTHROPIC_MODEL` actually
+  // resolves to today (`claude-sonnet-4-20250514`). Without this row the
+  // date-strip yields the bare `claude-sonnet-4`, which had no entry, so
+  // costFromUsage returned 0 and ops.db `runs.cost_usd` stayed 0 fleet-wide.
+  "claude-sonnet-4": {
+    inputPerMTok: 3,
+    outputPerMTok: 15,
+    cacheCreationPerMTok: 3.75,
+    cacheReadPerMTok: 0.3,
+  },
   // Haiku 4.x — $1/$5 per 1M
   "claude-haiku-4-5": {
     inputPerMTok: 1,
