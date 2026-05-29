@@ -17,7 +17,7 @@ export {
   StorageError,
   UnknownAgentError,
 } from "./errors.js";
-export { costFromUsage } from "./cost.js";
+export { costFromUsage, UnknownModelError } from "./cost.js";
 export type { AnthropicUsage, ModelPrice } from "./cost.js";
 export type {
   AgentRow,
