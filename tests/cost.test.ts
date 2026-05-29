@@ -1,5 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
-import { costFromUsage, _PRICE_TABLE } from "../src/cost.js";
+import { describe, expect, it } from "vitest";
+import {
+  costFromUsage,
+  UnknownModelError,
+  _PRICE_TABLE,
+} from "../src/cost.js";
 
 describe("costFromUsage", () => {
   it("computes Opus 4.7 input + output cost", () => {
@@ -74,18 +78,37 @@ describe("costFromUsage", () => {
     expect(cost).toBeCloseTo(0.01374, 6);
   });
 
-  it("returns 0 and warns for an unknown model", () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const cost = costFromUsage("claude-something-future", {
-      input_tokens: 1000,
-      output_tokens: 1000,
+  it("throws UnknownModelError for an unknown model (no silent 0 — AP-2)", () => {
+    expect(() =>
+      costFromUsage("claude-something-future", {
+        input_tokens: 1000,
+        output_tokens: 1000,
+      }),
+    ).toThrow(UnknownModelError);
+  });
+
+  it("the UnknownModelError carries the offending model id", () => {
+    try {
+      costFromUsage("claude-something-future", {
+        input_tokens: 1,
+        output_tokens: 1,
+      });
+      expect.unreachable("should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(UnknownModelError);
+      expect((err as UnknownModelError).model).toBe("claude-something-future");
+      expect((err as Error).message).toContain("claude-something-future");
+    }
+  });
+
+  it("prices Opus 4.8 (current flagship) — required before any 4.8 pin", () => {
+    // 1M input @ $15 + 1M output @ $75 = $90
+    const cost = costFromUsage("claude-opus-4-8", {
+      input_tokens: 1_000_000,
+      output_tokens: 1_000_000,
     });
-    expect(cost).toBe(0);
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    expect(warnSpy.mock.calls[0][0]).toContain(
-      'unknown model "claude-something-future"',
-    );
-    warnSpy.mockRestore();
+    expect(cost).toBeCloseTo(90, 6);
+    expect(_PRICE_TABLE["claude-opus-4-8"]).toBeDefined();
   });
 
   it("treats missing cache fields as 0 (no NaN propagation)", () => {
