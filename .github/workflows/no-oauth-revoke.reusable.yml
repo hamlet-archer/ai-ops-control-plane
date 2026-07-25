@@ -43,10 +43,20 @@ name: no-oauth-revoke (reusable)
 
 on:
   workflow_call:
+    inputs:
+      # Runner selection as a JSON array string. Standing rule in
+      # hamlet-archer/qa TESTING.md: CI runs self-hosted, minutes unmetered.
+      #
+      # The default MUST stay GitHub-hosted: runners are per-repo on a user
+      # account, so a [self-hosted, ...] label on a repo with no registered
+      # runner queues forever instead of failing. Opting in is the caller's job.
+      runs-on:
+        type: string
+        default: '["ubuntu-latest"]'
 
 jobs:
   no-oauth-revoke:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     steps:
       - uses: actions/checkout@v4
         with:
